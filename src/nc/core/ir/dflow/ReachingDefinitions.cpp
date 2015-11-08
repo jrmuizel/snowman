@@ -60,33 +60,51 @@ void ReachingDefinitions::killDefinitions(const MemoryLocation &mloc) {
         return;
     }
 
-    std::vector<Chunk> result;
-    result.reserve(chunks_.size() + 1);
+    auto start = chunks_.begin();
+    // find the first chunk in the same domain that ends after the start of mloc
+    while (start < chunks_.end() &&
+           (start->location().domain() < mloc.domain() || start->location().endAddr() < mloc.addr())) {
+        start++;
+    }
 
-    foreach (auto &chunk, chunks_) {
-        if (!mloc.overlaps(chunk.location())) {
-            result.push_back(std::move(chunk));
-        } else {
-            if (chunk.location().addr() < mloc.addr()) {
-                if (mloc.endAddr() < chunk.location().endAddr()) {
-                    result.push_back(Chunk(
-                        MemoryLocation(mloc.domain(), chunk.location().addr(), mloc.addr() - chunk.location().addr()),
-                        chunk.definitions()));
-                } else {
-                    result.push_back(Chunk(
-                        MemoryLocation(mloc.domain(), chunk.location().addr(), mloc.addr() - chunk.location().addr()),
-                        std::move(chunk.definitions())));
+    if (start < chunks_.end()) {
+        auto end = start;
+        // find the first chunk in the same domain that ends after the end of mloc
+        while (end < chunks_.end() &&
+               (end->location().domain() == mloc.domain() && end->location().endAddr() < mloc.endAddr())) {
+            end++;
+        }
+
+        if (start != end) {
+            // there's some overlap, deal with it.
+            if (start->location().addr() < mloc.addr()) {
+                if (start->location().endAddr() > mloc.endAddr()) {
+                    // mloc is completely contained inside mloc so we need to split it
+                    end = chunks_.insert(end, Chunk(MemoryLocation(mloc.domain(), mloc.endAddr(),
+                                                                   start->location().endAddr() - mloc.endAddr()),
+                                                    start->definitions()));
+                    // reset start as it could have been invalidated
+                    start = end - 1;
+
                 }
+                *start = Chunk(
+                    MemoryLocation(mloc.domain(), start->location().addr(), mloc.addr() - start->location().addr()),
+                    std::move(start->definitions()));
+                start++;
             }
-            if (mloc.endAddr() < chunk.location().endAddr()) {
-                result.push_back(Chunk(
-                    MemoryLocation(mloc.domain(), mloc.endAddr(), chunk.location().endAddr() - mloc.endAddr()),
-                    std::move(chunk.definitions())));
+
+            // erase any chunks that are completely contained inside mloc
+            assert(start <= end);
+            end = chunks_.erase(start, end);
+
+            // shrink the end chunk if it overlaps with mloc
+            if (end < chunks_.end() && end->location().domain() == mloc.domain() &&
+                end->location().addr() < mloc.addr()) {
+                *end = Chunk(MemoryLocation(mloc.domain(), mloc.endAddr(), end->location().endAddr() - mloc.endAddr()),
+                             std::move(end->definitions()));
             }
         }
     }
-
-    chunks_ = std::move(result);
 
     selfTest();
 }
