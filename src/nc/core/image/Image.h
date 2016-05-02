@@ -50,6 +50,7 @@ namespace image {
 
 class Section;
 class Relocation;
+class BaseReloc;
 
 /**
  * An executable image.
@@ -61,6 +62,8 @@ class Image: public ByteSource {
     boost::unordered_map<ConstantValue, Symbol *> value2symbol_; ///< Mapping from value to the symbol with this value.
     std::vector<std::unique_ptr<Relocation>> relocations_; ///< The list of relocations.
     boost::unordered_map<ByteAddr, Relocation *> address2relocation_; ///< Mapping from an address to the relocation with this address.
+    std::vector<std::unique_ptr<BaseReloc>> baserelocs_; ///< The list of base relocations.
+    boost::unordered_map<ByteAddr, BaseReloc *> address2basereloc_; ///< Mapping from an address to the base relocation with this address
     std::unique_ptr<mangling::Demangler> demangler_; ///< Demangler.
     boost::optional<ByteAddr> entrypoint_; ///< Entrypoint of image.
 
@@ -168,6 +171,23 @@ public:
      * \return Pointer to a relocation for this address. Can be nullptr.
      */
     const Relocation *getRelocation(ByteAddr address) const;
+
+    /**
+     * Adds an information about base relocation.
+     *
+     * \param relocation Valid pointer to a base relocation information.
+     *
+     * \return Pointer to the added relocation.
+     */
+    const BaseReloc *addBaseReloc(std::unique_ptr<BaseReloc> relocation);
+
+    /**
+     * \param address Virtual address.
+     *
+     * \return Pointer to a base relocation for this address. Can be nullptr.
+     */
+    const BaseReloc *getBaseReloc(ByteAddr address) const;
+
 
     /**
      * \return Valid pointer to a demangler.

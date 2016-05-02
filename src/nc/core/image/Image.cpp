@@ -33,6 +33,7 @@
 
 #include "Relocation.h"
 #include "Section.h"
+#include "BaseReloc.h"
 
 namespace nc { namespace core { namespace image {
 
@@ -100,6 +101,19 @@ const Relocation *Image::addRelocation(std::unique_ptr<Relocation> relocation) {
 
 const Relocation *Image::getRelocation(ByteAddr address) const {
     return nc::find(address2relocation_, address);
+}
+
+const BaseReloc *Image::addBaseReloc(std::unique_ptr<BaseReloc> relocation) {
+    auto result = relocation.get();
+
+    baserelocs_.push_back(std::move(relocation));
+    address2basereloc_[result->address()] = result;
+
+    return result;
+}
+
+const BaseReloc *Image::getBaseReloc(ByteAddr address) const {
+    return nc::find(address2basereloc_, address);
 }
 
 void Image::setDemangler(std::unique_ptr<mangling::Demangler> demangler) {
